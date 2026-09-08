@@ -8,7 +8,6 @@
 
 Every client keeps a full replica of the workspace in IndexedDB, edits optimistically, and reconciles through a server-ordered transaction log over WebSockets. It keeps working offline and stays consistent across tabs, devices and teammates.
 
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0A84FF.svg)](LICENSE)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)
@@ -85,6 +84,14 @@ Tracklane is a from-scratch take on that model, with no sync framework underneat
 **Shortcuts** (`?`). Everything in the list and board can be driven from the keyboard.
 
 ![Keyboard shortcuts dialog](docs/screenshots/shortcuts-light.png)
+
+**On a phone.** The sidebar folds into a sheet, rows drop their secondary columns, and the board scrolls sideways a column at a time.
+
+<p>
+  <img alt="Engineering issue list on a 390 px wide screen" src="docs/screenshots/mobile-team-list-light.png" width="32%" />
+  <img alt="Issue detail with activity and properties on a phone" src="docs/screenshots/mobile-issue-light.png" width="32%" />
+  <img alt="Board view in dark mode on a phone" src="docs/screenshots/mobile-board-dark.png" width="32%" />
+</p>
 
 <details>
 <summary><b>Sign-in screen (demo mode)</b></summary>
@@ -388,7 +395,7 @@ erDiagram
 | Web | Next.js 15 App Router, React 19, shadcn/ui, Tailwind 4 | Apple-inspired, calm UI with system light/dark |
 | Interaction | `cmdk`, `@dnd-kit`, `sonner`, `lucide-react` | Palette, drag and drop, toasts, icons |
 | Testing | Vitest 5, fast-check 4, `fake-indexeddb`, `mongodb-memory-server`, Supertest, Playwright 1.63 | Unit, property, integration and multi-context e2e |
-| Tooling | pnpm 9 workspaces, ESLint 9 (typescript-eslint), Docker Compose, GitHub Actions | |
+| Tooling | pnpm 9 workspaces, ESLint 9 (typescript-eslint), Docker Compose | |
 
 ## Project structure
 
@@ -421,15 +428,15 @@ tracklane/
 ├── scripts/
 │   └── dev-db.sh                   mongod (rs0) + redis without Docker, data in .data/
 ├── docs/screenshots/
-├── docker-compose.yml
-└── .github/workflows/ci.yml        typecheck, lint, test, build, then Playwright e2e
+├── .nvmrc                          Node 22
+└── docker-compose.yml
 ```
 
 ## Quickstart
 
 ### Prerequisites
 
-Node.js 22 or newer, pnpm 9, and local `mongod`, `mongosh` and `redis-server` binaries. If you'd rather not install those, use Docker Compose below.
+Node.js 22 (`.nvmrc`), pnpm 9, and local `mongod`, `mongosh` and `redis-server` binaries. If you'd rather not install those, use Docker Compose below.
 
 ### Local (no Docker)
 
@@ -483,6 +490,7 @@ Server settings live in `apps/server/.env` and are validated with Zod at boot. T
 | `LOGIN_RATE_WINDOW_SECONDS` | `60` | Rate-limit window |
 | `DEMO_MODE` | `false` | Lists the demo workspace's accounts on the sign-in screen |
 | `DEMO_WORKSPACE_SLUG` | `lumen` | Workspace that demo mode exposes |
+| `TRUST_PROXY_HOPS` | `0` | Reverse proxies in front of the API. Leave at `0` unless a proxy overwrites `X-Forwarded-For`; otherwise clients could pick the IP the login limit counts against |
 
 Web settings go in `apps/web/.env.local`:
 
@@ -497,6 +505,8 @@ pnpm typecheck && pnpm lint && pnpm test
 ```
 
 `pnpm test` needs no running database: server suites start an in-memory MongoDB replica set with `mongodb-memory-server`, and client suites use `fake-indexeddb`.
+
+The first server test run downloads a `mongod` binary into the `mongodb-memory-server` cache. MongoDB publishes no build for some platforms (Debian on arm64, for one), and the download fails offline; in both cases point `MONGOMS_SYSTEM_BINARY` at an existing `mongod`, for example the one in the `mongo:7` image.
 
 | Suite | Where | What it proves |
 |---|---|---|
@@ -515,7 +525,7 @@ Run the Playwright suite against running servers (after `pnpm db:up && pnpm seed
 cd apps/web && E2E_EXTERNAL_SERVERS=1 npx playwright test
 ```
 
-Without `E2E_EXTERNAL_SERVERS`, Playwright starts the built API and web app itself. CI runs the full pipeline on every push: typecheck, lint, test and build, then Playwright against a real Mongo replica set and Redis.
+Without `E2E_EXTERNAL_SERVERS`, Playwright starts the built API and web app itself.
 
 ## API overview
 
@@ -530,6 +540,49 @@ Without `E2E_EXTERNAL_SERVERS`, Playwright starts the built API and web app itse
 | `GET` | `/api/sync/bootstrap` | Bearer | Full replica for the caller's teams plus `{ lastSyncId, epoch }` |
 | `GET` | `/api/sync/deltas?after=&epoch=` | Bearer | HTTP version of socket catch-up, handy with `curl` |
 | `GET` | `/api/issues?teamId=&limit=&cursor=` | Bearer | Keyset-paginated, read-only listing for integrations |
+
+Captured against the Compose stack with the seeded Lumen workspace (IDs shortened, token redacted):
+
+```bash
+curl -s localhost:8110/healthz
+```
+
+```json
+{"status":"ok","checks":{"mongo":"up","redis":"up"}}
+```
+
+```bash
+curl -s localhost:8110/api/auth/login -H 'content-type: application/json' \
+  -d '{"email":"maya@lumen.dev","password":"tracklane"}'
+```
+
+```json
+{
+  "token": "eyJhbG…ZgeY",
+  "user": { "id": "31e544b2-…", "workspaceId": "70a9948c-…", "name": "Maya Chen", "email": "maya@lumen.dev", "role": "admin", "avatarHue": 211 },
+  "workspace": { "id": "70a9948c-…", "name": "Lumen", "slug": "lumen" }
+}
+```
+
+```bash
+curl -s "localhost:8110/api/issues?limit=1" -H "authorization: Bearer $TOKEN"
+```
+
+```json
+{
+  "issues": [
+    {
+      "id": "d4a4f247-…", "teamId": "c395de16-…", "projectId": null, "number": 10,
+      "title": "Redesign the issue inspector", "description": "", "status": "todo", "priority": 3,
+      "assigneeId": "3dec16ca-…", "labelIds": ["3f615551-…"], "sortOrder": 10240,
+      "createdAt": "2026-11-07T15:37:53.971Z", "updatedAt": "2026-11-08T08:37:53.971Z", "archivedAt": null
+    }
+  ],
+  "nextCursor": "eyJ1cGRhdGVkQXQiOiIyMDI2LTExLTA4VDA4OjM3OjUzLjk3MVoiLCJpZCI6ImQ0YTRmMjQ3LTlkOWQtNDU2Mi04MThmLWY1ZGQzNzI5MGMxMSJ9"
+}
+```
+
+A fresh seed's `GET /api/sync/bootstrap` for Maya returns 6 users, 3 teams, 6 projects, 7 labels, 40 issues and 8 comments at `lastSyncId: 0`.
 
 ### Socket.IO events
 
