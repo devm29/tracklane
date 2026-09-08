@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.1",
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "scripts": {
     "build:packages": "pnpm --filter @tracklane/domain --filter @tracklane/sync-core run build",
