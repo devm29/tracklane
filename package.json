@@ -1,0 +1,30 @@
+{
+  "name": "tracklane",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:packages": "pnpm --filter @tracklane/domain --filter @tracklane/sync-core run build",
+    "build": "pnpm build:packages && pnpm --filter @tracklane/server --filter @tracklane/web run build",
+    "dev": "pnpm build:packages && pnpm --parallel --filter @tracklane/server --filter @tracklane/web --filter @tracklane/domain --filter @tracklane/sync-core run dev",
+    "typecheck": "pnpm build:packages && pnpm -r run typecheck",
+    "lint": "eslint .",
+    "test": "pnpm build:packages && pnpm -r run test",
+    "test:e2e": "pnpm --filter @tracklane/web run test:e2e",
+    "seed": "pnpm --filter @tracklane/server run seed",
+    "db:up": "./scripts/dev-db.sh start",
+    "db:down": "./scripts/dev-db.sh stop"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.20.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  }
+}
