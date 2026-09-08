@@ -265,7 +265,7 @@ async function ensureSyncLogTtl(model: Model<SyncActionDoc>, retentionDays: numb
   const legacy = indexes.find((index) => index.name === "createdAt_1" && index.expireAfterSeconds !== undefined);
   if (legacy) await model.collection.dropIndex("createdAt_1");
   if (!existing) {
-    await model.collection.createIndex({ createdAt: 1 }, { name: SYNC_LOG_TTL_INDEX, expireAfterSeconds });
+    await model.collection.createIndex({ createdAt: 1 }, { name: SYNC_LOG_TTL_INDEX, expireAfterSeconds }, undefined);
     return;
   }
   if (existing.expireAfterSeconds === expireAfterSeconds) return;
