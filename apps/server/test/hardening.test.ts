@@ -30,12 +30,42 @@ describe("login rate limiting", () => {
   });
 });
 
+describe("login rate limiting without a trusted proxy", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await startStack({ loginRateLimit: { max: 3, windowSeconds: 60 } });
+  });
+
+  afterAll(async () => {
+    await stack.close();
+  });
+
+  it("ignores X-Forwarded-For, so a client can't rotate its way past the per-IP limit", async () => {
+    const statuses: number[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const response = await request(stack.server.http)
+        .post("/api/auth/login")
+        .set("X-Forwarded-For", `203.0.113.${index + 1}`)
+        .send({ email: `nobody-${index}@lumen.dev`, password: "guess" });
+      statuses.push(response.status);
+    }
+    expect(statuses).toEqual([401, 401, 401, 429]);
+  });
+});
+
 describe("config", () => {
   const base = { JWT_SECRET: "a-real-secret-with-more-than-32-characters-in-it" };
 
   it("keeps demo mode off unless it is asked for", () => {
     expect(loadConfig(base).demoWorkspaceSlug).toBeNull();
     expect(loadConfig({ ...base, DEMO_MODE: "true" }).demoWorkspaceSlug).toBe("lumen");
+  });
+
+  it("trusts no proxy hops unless TRUST_PROXY_HOPS is set", () => {
+    expect(loadConfig(base).trustProxyHops).toBe(0);
+    expect(loadConfig({ ...base, TRUST_PROXY_HOPS: "1" }).trustProxyHops).toBe(1);
+    expect(() => loadConfig({ ...base, TRUST_PROXY_HOPS: "-1" })).toThrow(/TRUST_PROXY_HOPS/);
   });
 
   it("refuses example secrets in production", () => {

@@ -18,7 +18,7 @@ export interface HealthProbe {
 export function createApp(config: AppConfig, services: Services, logger: Logger, health: HealthProbe): Express {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  app.set("trust proxy", config.trustProxyHops);
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins, credentials: false }));
   app.use(compression());

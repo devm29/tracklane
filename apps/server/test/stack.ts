@@ -38,6 +38,7 @@ export async function startStack(overrides: Partial<AppConfig> = {}): Promise<Te
     accessRefreshMs: 60_000,
     loginRateLimit: { max: 1_000, windowSeconds: 60 },
     demoWorkspaceSlug: "lumen",
+    trustProxyHops: 0,
     ...overrides,
   };
   const logger = createLogger(config);

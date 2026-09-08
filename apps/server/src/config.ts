@@ -28,6 +28,7 @@ const EnvSchema = z.object({
   LOGIN_RATE_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
   DEMO_MODE: booleanFlag.default(false),
   DEMO_WORKSPACE_SLUG: z.string().min(1).default("lumen"),
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
 });
 
 export interface AppConfig {
@@ -46,6 +47,12 @@ export interface AppConfig {
   loginRateLimit: { max: number; windowSeconds: number };
   /** Set only when demo mode is on: the one workspace whose accounts the sign-in screen may list. */
   demoWorkspaceSlug: string | null;
+  /**
+   * Reverse proxies in front of the API. Only then may X-Forwarded-For pick
+   * the client IP; trusting it without a proxy lets anyone choose their own
+   * address and dodge the per-IP login limit.
+   */
+  trustProxyHops: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -73,5 +80,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     accessRefreshMs: e.ACCESS_REFRESH_SECONDS * 1_000,
     loginRateLimit: { max: e.LOGIN_RATE_LIMIT, windowSeconds: e.LOGIN_RATE_WINDOW_SECONDS },
     demoWorkspaceSlug: e.DEMO_MODE ? e.DEMO_WORKSPACE_SLUG : null,
+    trustProxyHops: e.TRUST_PROXY_HOPS,
   };
 }
